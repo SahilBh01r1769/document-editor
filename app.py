@@ -5,6 +5,7 @@ from streamlit_drawable_canvas import st_canvas
 
 from layout_detection import detect_layout
 from templates import build_template, dumps_template, loads_template, apply_template
+from region_understanding import understand_region
 from style_matching import style_summary
 
 from editor import (
@@ -65,7 +66,10 @@ with left:
         if pending:
             st.write(f"Detected: `{pending.original_text}`")
             st.caption(f"Source: {pending.source}")
+            insight = understand_region(pending.original_text, pending.source)
+            st.caption(f"Region type: {insight.kind} · confidence {insight.confidence:.0%}")
             st.caption(f"Style: {style_summary(pending.font, pending.font_size, pending.color)}")
+            st.caption(insight.reason)
             operation = st.radio("Operation", ["replace", "remove"], horizontal=True, key="search_op")
             replacement = st.text_input("Replacement", key="search_replacement") if operation == "replace" else ""
             if st.button("Add edit", use_container_width=True):
@@ -166,6 +170,9 @@ with right:
             if region and region.page_index == page_index:
                 st.write(f"Detected text: `{region.original_text}`")
                 st.caption(f"Source: {region.source}")
+                insight = understand_region(region.original_text, region.source)
+                st.caption(f"Region type: {insight.kind} · confidence {insight.confidence:.0%}")
+                st.caption(f"Suggested: {', '.join(insight.suggested_actions)}")
                 st.caption(f"Style: {style_summary(region.font, region.font_size, region.color)}")
                 operation = st.radio("Region operation", ["replace", "remove"], horizontal=True)
                 replacement = st.text_input("Region replacement") if operation == "replace" else ""
