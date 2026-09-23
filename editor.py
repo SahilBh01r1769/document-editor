@@ -11,6 +11,7 @@ from PIL import Image
 import pytesseract
 
 from style_matching import fit_font_size, int_color_to_rgb, normalize_font
+from ocr_engine import recognize_region
 
 
 TESSERACT_CMD = os.getenv("TESSERACT_CMD")
@@ -135,7 +136,8 @@ def select_region(doc, page_index, bbox, ocr_if_needed=True, ocr_dpi=220):
         return Selection(page_index, bbox, "", "region")
     page_img = render_page(doc, page_index, dpi=ocr_dpi)
     crop = page_img.crop(pdf_bbox_to_image_bbox(bbox, page_img.size, page_size(doc, page_index)))
-    text = pytesseract.image_to_string(crop, config="--psm 6").strip()
+    ocr = recognize_region(crop)
+    text = ocr.text
     return Selection(page_index, bbox, text, "ocr", font_size=max(8.0, min(20.0, rect.height * 0.75)))
 
 
