@@ -4,6 +4,7 @@ import streamlit as st
 from streamlit_drawable_canvas import st_canvas
 
 from layout_detection import detect_layout
+from templates import build_template, dumps_template, loads_template, apply_template
 from style_matching import style_summary
 
 from editor import (
@@ -103,6 +104,28 @@ with left:
     if st.session_state.edits and st.button("Clear queue", use_container_width=True):
         st.session_state.edits = []
         st.rerun()
+
+    st.subheader("Templates")
+    template_name = st.text_input("Template name", value="Document template")
+    if st.session_state.edits:
+        template_payload = dumps_template(build_template(template_name, doc, st.session_state.edits))
+        st.download_button(
+            "Save current edits as template",
+            data=template_payload,
+            file_name="pdf_edit_template.json",
+            mime="application/json",
+            use_container_width=True,
+        )
+
+    template_file = st.file_uploader("Load template", type=["json"], key="template_upload")
+    if template_file and st.button("Apply template to this PDF", use_container_width=True):
+        try:
+            template = loads_template(template_file.getvalue())
+            st.session_state.edits.extend(apply_template(doc, template))
+            st.success(f"Loaded {len(template.get('edits', []))} template edits.")
+            st.rerun()
+        except Exception as e:
+            st.error(f"Could not load template: {e}")
 
 with right:
     preview = render_page(doc, page_index, dpi=150)
