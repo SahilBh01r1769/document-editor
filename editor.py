@@ -10,6 +10,8 @@ import numpy as np
 from PIL import Image
 import pytesseract
 
+from style_matching import fit_font_size, int_color_to_rgb, normalize_font
+
 
 TESSERACT_CMD = os.getenv("TESSERACT_CMD")
 if TESSERACT_CMD:
@@ -69,12 +71,6 @@ def pdf_bbox_to_image_bbox(pdf_bbox, image_size, pdf_size):
     )
 
 
-def _rgb(color: int | None):
-    if color is None:
-        return (0.0, 0.0, 0.0)
-    return (((color >> 16) & 255) / 255, ((color >> 8) & 255) / 255, (color & 255) / 255)
-
-
 def native_text_spans(page: fitz.Page) -> list[dict]:
     spans = []
     for block in page.get_text("dict").get("blocks", []):
@@ -109,7 +105,7 @@ def search_text(doc: fitz.Document, query: str) -> list[Selection]:
                     "native",
                     best.get("font", "helv"),
                     float(best.get("size", 10.0)),
-                    _rgb(best.get("color")),
+                    int_color_to_rgb(best.get("color")),
                     (float(origin[0]), float(origin[1])),
                 ))
             else:
@@ -132,7 +128,7 @@ def select_region(doc, page_index, bbox, ocr_if_needed=True, ocr_dpi=220):
             "native",
             main.get("font", "helv"),
             float(main.get("size", 10.0)),
-            _rgb(main.get("color")),
+            int_color_to_rgb(main.get("color")),
             (float(origin[0]), float(origin[1])),
         )
     if not ocr_if_needed:
@@ -141,28 +137,6 @@ def select_region(doc, page_index, bbox, ocr_if_needed=True, ocr_dpi=220):
     crop = page_img.crop(pdf_bbox_to_image_bbox(bbox, page_img.size, page_size(doc, page_index)))
     text = pytesseract.image_to_string(crop, config="--psm 6").strip()
     return Selection(page_index, bbox, text, "ocr", font_size=max(8.0, min(20.0, rect.height * 0.75)))
-
-
-def _font_alias(name: str) -> str:
-    n = (name or "").lower()
-    if "cour" in n:
-        return "cour"
-    if "times" in n or "roman" in n:
-        return "times-roman"
-    return "helv"
-
-
-def _fit_size(text: str, font: str, size: float, width: float) -> float:
-    size = max(4.0, size)
-    while size > 4.0:
-        try:
-            if fitz.get_text_length(text, fontname=font, fontsize=size) <= width:
-                return size
-        except Exception:
-            if len(text) * size * 0.55 <= width:
-                return size
-        size -= 0.25
-    return 4.0
 
 
 def _background(page: fitz.Page, rect: fitz.Rect):
@@ -196,8 +170,8 @@ def apply_edits(pdf_bytes: bytes, edits: Iterable[Edit]) -> bytes:
         s = edit.selection
         page = doc[s.page_index]
         rect = fitz.Rect(*s.bbox)
-        font = _font_alias(s.font)
-        size = _fit_size(edit.replacement, font, s.font_size, max(4.0, rect.width))
+        font = normalize_font(s.font)
+        size = fit_font_size(edit.replacement, font, s.font_size, max(4.0, rect.width))
         baseline = s.origin[1] if s.origin else rect.y1 - 1
         baseline = min(max(baseline, rect.y0 + size), rect.y1 + size * 0.25)
         page.insert_text(fitz.Point(rect.x0, baseline), edit.replacement, fontsize=size, fontname=font, color=s.color, overlay=True)

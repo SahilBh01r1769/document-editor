@@ -3,6 +3,8 @@ from __future__ import annotations
 import streamlit as st
 from streamlit_drawable_canvas import st_canvas
 
+from style_matching import style_summary
+
 from editor import (
     Edit,
     apply_edits,
@@ -61,6 +63,7 @@ with left:
         if pending:
             st.write(f"Detected: `{pending.original_text}`")
             st.caption(f"Source: {pending.source}")
+            st.caption(f"Style: {style_summary(pending.font, pending.font_size, pending.color)}")
             operation = st.radio("Operation", ["replace", "remove"], horizontal=True, key="search_op")
             replacement = st.text_input("Replacement", key="search_replacement") if operation == "replace" else ""
             if st.button("Add edit", use_container_width=True):
@@ -125,6 +128,7 @@ with right:
             if region and region.page_index == page_index:
                 st.write(f"Detected text: `{region.original_text}`")
                 st.caption(f"Source: {region.source}")
+                st.caption(f"Style: {style_summary(region.font, region.font_size, region.color)}")
                 operation = st.radio("Region operation", ["replace", "remove"], horizontal=True)
                 replacement = st.text_input("Region replacement") if operation == "replace" else ""
                 if st.button("Add region edit", use_container_width=True):
