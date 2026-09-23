@@ -3,6 +3,7 @@ from __future__ import annotations
 import streamlit as st
 from streamlit_drawable_canvas import st_canvas
 
+from layout_detection import detect_layout
 from style_matching import style_summary
 
 from editor import (
@@ -69,6 +70,20 @@ with left:
             if st.button("Add edit", use_container_width=True):
                 st.session_state.edits.append(Edit(pending, operation, replacement))
                 st.success("Edit added.")
+
+    st.subheader("Detected layout")
+    if st.button("Analyze page layout", use_container_width=True):
+        st.session_state.layout_blocks = detect_layout(doc, page_index, render_page(doc, page_index, dpi=150))
+
+    blocks = [b for b in st.session_state.get("layout_blocks", []) if b.page_index == page_index]
+    if blocks:
+        labels = [f"{i+1}. {b.kind} — {b.text[:45] or 'region'}" for i, b in enumerate(blocks)]
+        chosen = st.selectbox("Detected region", range(len(blocks)), format_func=lambda i: labels[i])
+        block = blocks[chosen]
+        st.caption(f"Box: {tuple(round(v, 1) for v in block.bbox)} · confidence {block.confidence:.0%}")
+        if st.button("Use detected region", use_container_width=True):
+            st.session_state.region_selection = select_region(doc, page_index, block.bbox, ocr_if_needed=True)
+            st.success("Detected region loaded into the edit controls.")
 
     st.subheader("Queued edits")
     if not st.session_state.edits:
